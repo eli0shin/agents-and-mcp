@@ -1,6 +1,6 @@
 ---
 description: Use Bun instead of Node.js, npm, pnpm, or vite.
-globs: "*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json"
+globs: '*.ts, *.tsx, *.html, *.css, *.js, *.jsx, package.json'
 alwaysApply: false
 ---
 
@@ -36,3 +36,11 @@ test("hello world", () => {
 ```
 
 For more information, read the Bun API docs in `node_modules/bun-types/docs/**.md`.
+
+## Linting
+
+Use `bun run lint` to run ESLint checks and `bun run lint:fix` to auto-fix issues.
+
+## Formatting
+
+Use `bun run format` to format code with Prettier and `bun run format:check` to check formatting.
