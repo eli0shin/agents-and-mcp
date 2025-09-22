@@ -3,6 +3,7 @@
   "module": "src/index.ts",
   "type": "module",
   "devDependencies": {
+    "@ai-sdk/anthropic": "^2.0.17",
     "@eslint/js": "^9.36.0",
     "@modelcontextprotocol/sdk": "^1.18.1",
     "@types/bun": "latest",
