@@ -44,3 +44,4 @@ Use `bun run lint` to run ESLint checks and `bun run lint:fix` to auto-fix issue
 ## Formatting
 
 Use `bun run format` to format code with Prettier and `bun run format:check` to check formatting.
+- run bun run build then ./bin/cli to test the real built cli

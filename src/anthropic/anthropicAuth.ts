@@ -4,6 +4,24 @@
  */
 
 import { AnthropicOAuth } from './auth/index.js';
+import { transformMessagesForAnthropic } from './messageTransform.js';
+
+type AnthropicContent = {
+  type: 'text';
+  text: string;
+  cache_control?: { type: 'ephemeral' };
+};
+
+type AnthropicMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: AnthropicContent[];
+};
+
+type AnthropicRequestBody = {
+  messages: AnthropicMessage[];
+  system: AnthropicContent[];
+  [key: string]: unknown;
+};
 
 type FetchFunction = typeof fetch;
 
@@ -25,23 +43,14 @@ type AuthOptions = {
 export function createAnthropicAuthFetch(options: AuthOptions): FetchFunction {
   const baseFetch = options.baseFetch || fetch;
 
-  const authFetch = async (input: string | URL | Request, init: RequestInit = {}) => {
+  const authFetch = async (
+    input: string | URL | Request,
+    init: RequestInit = {}
+  ) => {
     // Preserve existing headers from AI SDK (including anthropic-version)
     const headers: Record<string, string> = {
       ...(init.headers as Record<string, string>),
     };
-
-    console.debug('Anthropic auth fetch initialization', {
-      url: typeof input === 'string' ? input : input instanceof URL ? input.href : '[Request object]',
-      authType: options.authType,
-      enableOAuth: options.enableOAuth,
-      preferOAuth: options.preferOAuth,
-      disableDefaultAuth: options.disableDefaultAuth,
-      hasApiKey: !!options.apiKey,
-      hasCustomHeaders: !!options.customHeaders,
-      hasOauthHeaders: !!options.oauthHeaders,
-      initialHeaders: Object.keys(headers),
-    });
 
     // Handle authentication based on type and preferences
     if (!options.disableDefaultAuth) {
@@ -70,12 +79,6 @@ export function createAnthropicAuthFetch(options: AuthOptions): FetchFunction {
             delete headers['x-api-key'];
             authHandled = true;
 
-            console.debug('OAuth authentication successful', {
-              hasToken: true,
-              tokenLength: oauthToken.length,
-              hasOauthHeaders: !!options.oauthHeaders,
-            });
-
             // Add OAuth-specific headers
             if (options.oauthHeaders) {
               Object.entries(options.oauthHeaders).forEach(([key, value]) => {
@@ -100,21 +103,12 @@ export function createAnthropicAuthFetch(options: AuthOptions): FetchFunction {
       if (!authHandled && options.apiKey) {
         if (options.authType === 'bearer') {
           headers.Authorization = `Bearer ${options.apiKey}`;
-          console.debug('Using Bearer token authentication', {
-            authType: 'bearer',
-            keyLength: options.apiKey.length,
-          });
         } else if (
           options.authType === 'x-api-key' ||
           options.authType === 'oauth'
         ) {
           // Use x-api-key for explicit x-api-key type or as OAuth fallback
           headers['x-api-key'] = options.apiKey;
-          console.debug('Using x-api-key authentication', {
-            authType: options.authType,
-            keyLength: options.apiKey.length,
-            fallbackFromOAuth: options.authType === 'oauth',
-          });
         }
         authHandled = true;
       }
@@ -148,25 +142,51 @@ export function createAnthropicAuthFetch(options: AuthOptions): FetchFunction {
 
     // Add custom headers (excluding OAuth headers which are handled above)
     if (options.customHeaders) {
-      console.debug('Adding custom headers', {
-        customHeaderCount: Object.keys(options.customHeaders).length,
-        customHeaderKeys: Object.keys(options.customHeaders),
-      });
       Object.entries(options.customHeaders).forEach(([key, value]) => {
         headers[key] = value;
       });
     }
 
-    console.debug('Final authentication headers prepared', {
-      finalHeaderKeys: Object.keys(headers),
-      hasAuthHeader: !!(headers.authorization || headers['x-api-key']),
-      hasAnthropicBeta: !!headers['anthropic-beta'],
-    });
+    // Transform request body if it's an Anthropic API call
+    let finalInit = { ...init, headers };
 
-    return baseFetch(input, {
-      ...init,
-      headers,
-    });
+    if (init.body && typeof init.body === 'string') {
+      try {
+        const bodyData = JSON.parse(init.body) as unknown;
+
+        // Check if this is an Anthropic messages API call with proper type guard
+        if (
+          bodyData &&
+          typeof bodyData === 'object' &&
+          'messages' in bodyData &&
+          Array.isArray((bodyData as AnthropicRequestBody).messages)
+        ) {
+          const typedBody = bodyData as AnthropicRequestBody;
+          const transformed = transformMessagesForAnthropic(
+            typedBody.messages,
+            typedBody.system
+          );
+          const transformedBody: AnthropicRequestBody = {
+            ...typedBody,
+            system: transformed.system,
+            messages: transformed.messages,
+          };
+
+          finalInit = {
+            ...finalInit,
+            body: JSON.stringify(transformedBody),
+          };
+        }
+      } catch (error) {
+        // If JSON parsing fails, continue with original body
+        console.debug(
+          'Failed to parse request body for transformation:',
+          error
+        );
+      }
+    }
+
+    return baseFetch(input, finalInit);
   };
 
   // Copy over fetch properties to make it compatible with typeof fetch

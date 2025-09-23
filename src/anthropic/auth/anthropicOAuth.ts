@@ -3,6 +3,7 @@
  * Handles OAuth flow for Claude Pro/Max authentication
  */
 
+import { generatePKCE } from '@openauthjs/openauth/pkce';
 import * as CredentialStore from './credentialStore.js';
 
 const CLIENT_ID = '9d1c250a-e61b-44d9-88ed-5944d1962f5e';
@@ -10,26 +11,6 @@ const AUTHORIZATION_URL = 'https://claude.ai/oauth/authorize';
 const TOKEN_URL = 'https://console.anthropic.com/v1/oauth/token';
 const REDIRECT_URI = 'https://console.anthropic.com/oauth/code/callback';
 const SCOPES = 'org:create_api_key user:profile user:inference';
-
-// Simple PKCE implementation
-function generateCodeVerifier(): string {
-  const array = new Uint8Array(32);
-  crypto.getRandomValues(array);
-  return btoa(String.fromCharCode(...array))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
-}
-
-async function generateCodeChallenge(verifier: string): Promise<string> {
-  const encoder = new TextEncoder();
-  const data = encoder.encode(verifier);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  return btoa(String.fromCharCode(...new Uint8Array(digest)))
-    .replace(/\+/g, '-')
-    .replace(/\//g, '_')
-    .replace(/=/g, '');
-}
 
 /**
  * Initiate OAuth authorization flow
@@ -39,22 +20,20 @@ export async function authorize(): Promise<{
   url: string;
   verifier: string;
 }> {
-  const verifier = generateCodeVerifier();
-  const challenge = await generateCodeChallenge(verifier);
-
-  const url = new URL(AUTHORIZATION_URL);
+  const pkce = await generatePKCE();
+  const url = new URL(AUTHORIZATION_URL, import.meta.url);
   url.searchParams.set('code', 'true');
   url.searchParams.set('client_id', CLIENT_ID);
   url.searchParams.set('response_type', 'code');
   url.searchParams.set('redirect_uri', REDIRECT_URI);
   url.searchParams.set('scope', SCOPES);
-  url.searchParams.set('code_challenge', challenge);
+  url.searchParams.set('code_challenge', pkce.challenge);
   url.searchParams.set('code_challenge_method', 'S256');
-  url.searchParams.set('state', verifier);
+  url.searchParams.set('state', pkce.verifier);
 
   return {
     url: url.toString(),
-    verifier,
+    verifier: pkce.verifier,
   };
 }
 
@@ -118,25 +97,12 @@ export async function getAccessToken(): Promise<string | undefined> {
     return undefined;
   }
 
-  const timeUntilExpiry = credentials.expires - Date.now();
-  const isExpired = timeUntilExpiry <= 0;
-
-  console.debug('OAuth token status check', {
-    hasAccessToken: !!credentials.access,
-    hasRefreshToken: !!credentials.refresh,
-    timeUntilExpiry,
-    isExpired,
-    expiresAt: new Date(credentials.expires).toISOString(),
-  });
-
   // Return current token if still valid (no expiration buffer)
   if (credentials.access && credentials.expires > Date.now()) {
-    console.debug('Using existing valid OAuth token');
     return credentials.access;
   }
 
   // Try to refresh the token
-  console.debug('Attempting token refresh');
   return await refreshToken();
 }
 
@@ -203,14 +169,6 @@ export async function refreshToken(): Promise<string | undefined> {
       access: tokenData.access_token,
       refresh: tokenData.refresh_token,
       expires: Date.now() + tokenData.expires_in * 1000,
-    });
-
-    console.info('OAuth token refreshed successfully', {
-      newTokenLength: tokenData.access_token.length,
-      expiresIn: tokenData.expires_in,
-      newExpiresAt: new Date(
-        Date.now() + tokenData.expires_in * 1000
-      ).toISOString(),
     });
 
     return tokenData.access_token;

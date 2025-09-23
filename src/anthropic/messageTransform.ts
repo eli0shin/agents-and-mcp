@@ -3,95 +3,100 @@
  * Implements Anthropic OAuth-compatible message caching strategies
  */
 
-import type { ModelMessage } from 'ai';
+/**
+ * Anthropic native content format
+ */
+type AnthropicContent = {
+  type: 'text';
+  text: string;
+  cache_control?: { type: 'ephemeral' };
+};
 
 /**
- * Extended message type with provider metadata
+ * Anthropic native message format
  */
-type ExtendedCoreMessage = ModelMessage & {
-  providerOptions?: {
-    anthropic?: {
-      cacheControl?: { type: 'ephemeral' };
-    };
-  };
+type AnthropicMessage = {
+  role: 'system' | 'user' | 'assistant';
+  content: AnthropicContent[];
 };
 
 /**
  * Applies Anthropic-specific cache control optimizations to messages
  * Only caches: first 2 system messages + last 2 non-system messages
+ * Returns Anthropic native format with content arrays
  */
 export function transformMessagesForAnthropic(
-  messages: ModelMessage[],
-  systemPrompts?: string[]
-): ModelMessage[] {
-  // Deep copy messages to avoid mutating the originals
-  // This ensures cache control doesn't persist across agent turns
-  let transformed: ModelMessage[] = messages.map((msg) => {
-    const extendedMsg = msg as ExtendedCoreMessage;
-    // Create a new message object, preserving existing provider options
-    // but removing any existing anthropic cache control
-    const { anthropic, ...otherProviderOptions } = extendedMsg.providerOptions || {};
-
-    // Only include anthropic if it has properties other than cacheControl
-    const cleanedAnthropic = anthropic ?
-      Object.keys(anthropic).filter(k => k !== 'cacheControl').length > 0 ?
-        Object.fromEntries(Object.entries(anthropic).filter(([k]) => k !== 'cacheControl')) :
-        undefined :
-      undefined;
-
-    const newMsg: ExtendedCoreMessage = {
-      ...msg,
-      providerOptions: (Object.keys(otherProviderOptions).length > 0 || cleanedAnthropic) ?
-        {
-          ...otherProviderOptions,
-          ...(cleanedAnthropic ? { anthropic: cleanedAnthropic } : {})
-        } : undefined,
-    };
-    return newMsg;
+  messages: AnthropicMessage[],
+  system: AnthropicContent[] = []
+) {
+  system.unshift({
+    type: 'text',
+    text: "You are Claude Code, Anthropic's official CLI for Claude.",
   });
-
-  // Convert array system prompts to system messages if provided
-  if (systemPrompts && systemPrompts.length > 0) {
-    // Convert all system prompts to system messages (without cache control initially)
-    const systemMessages: ModelMessage[] = systemPrompts.map((content) => ({
-      role: 'system',
-      content,
-    }));
-
-    // Prepend system messages to the conversation
-    transformed = [...systemMessages, ...transformed];
-  }
 
   // Apply cache control strategy: first 2 system + last 2 non-system
   const systemMessageIndices: number[] = [];
   const nonSystemMessageIndices: number[] = [];
+  system.forEach((_, index) => {
+    systemMessageIndices.push(index);
+  });
 
-  transformed.forEach((msg, index) => {
-    if (msg.role === 'system') {
-      systemMessageIndices.push(index);
-    } else {
-      nonSystemMessageIndices.push(index);
-    }
+  messages.forEach((_, index) => {
+    nonSystemMessageIndices.push(index);
   });
 
   // Get indices for messages to cache
-  const indicesToCache = [
-    ...systemMessageIndices.slice(0, 2), // First 2 system messages
-    ...nonSystemMessageIndices.slice(-2), // Last 2 non-system messages
-  ];
+  const systemMessagesToCache = systemMessageIndices.slice(0, 2); // First 2 system messages
+  const nonSystemMessagesToCache = nonSystemMessageIndices.slice(-2); // Last 2 non-system messages
 
-  // Apply cache control only to selected messages by index
-  indicesToCache.forEach((index) => {
-    const extendedMsg = transformed[index] as ExtendedCoreMessage;
-    extendedMsg.providerOptions = {
-      ...extendedMsg.providerOptions,
-      anthropic: {
-        ...extendedMsg.providerOptions?.anthropic,
-        cacheControl: { type: 'ephemeral' },
-      },
+  // Apply cache control to existing content arrays
+  const systemWithCache = system.map(
+    addCacheToSystemMessages(systemMessagesToCache)
+  );
+  const messagesWithCache = messages.map(
+    addCacheToMessages(nonSystemMessagesToCache)
+  );
+
+  return {
+    messages: messagesWithCache,
+    system: systemWithCache,
+  };
+}
+function addCacheToMessages(indicesToCache: number[]) {
+  return (msg: AnthropicMessage, index: number) => {
+    const shouldCache = indicesToCache.includes(index);
+
+    if (!shouldCache) {
+      return msg;
+    }
+
+    // Add cache control to content items
+    const contentWithCache: AnthropicContent[] = msg.content.map(
+      (contentItem) => ({
+        ...contentItem,
+        cache_control: { type: 'ephemeral' as const },
+      })
+    );
+
+    return {
+      ...msg,
+      content: contentWithCache,
     };
-  });
-
-  return transformed;
+  };
 }
 
+function addCacheToSystemMessages(indicesToCache: number[]) {
+  return (msg: AnthropicContent, index: number) => {
+    const shouldCache = indicesToCache.includes(index);
+
+    if (!shouldCache) {
+      return msg;
+    }
+
+    // Add cache control to content items
+    return {
+      ...msg,
+      cache_control: { type: 'ephemeral' as const },
+    };
+  };
+}

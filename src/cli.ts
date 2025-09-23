@@ -1,10 +1,18 @@
 #!/usr/bin/env bun
 import { Command } from '@commander-js/extra-typings';
+import { generateText } from 'ai';
 import { searchGoogle } from './google-scraper/index';
+import {
+  loginCommand,
+  logoutCommand,
+  listCommand,
+  statusCommand,
+  anthropicProvider,
+} from './anthropic/index.js';
 
 const program = new Command()
-  .name('google-search')
-  .description('Search Google using the Custom Search API')
+  .name('agents-and-mcp')
+  .description('CLI for agents and MCP tooling')
   .version('1.0.0');
 
 program
@@ -95,6 +103,89 @@ program
       console.log('Or create a .env file with:');
       console.log('GOOGLE_API_KEY=your_api_key_here');
       console.log('GOOGLE_SEARCH_ENGINE_ID=your_search_engine_id_here');
+    }
+  });
+
+// Anthropic authentication commands
+program
+  .command('auth')
+  .description('Manage Anthropic authentication')
+  .addCommand(
+    new Command('login')
+      .description('Set up Anthropic authentication (OAuth or API key)')
+      .action(async () => {
+        try {
+          await loginCommand();
+        } catch (error) {
+          console.error(
+            'Login failed:',
+            error instanceof Error ? error.message : error
+          );
+          process.exit(1);
+        }
+      })
+  )
+  .addCommand(
+    new Command('logout')
+      .description('Remove stored Anthropic credentials')
+      .action(async () => {
+        try {
+          await logoutCommand();
+        } catch (error) {
+          console.error(
+            'Logout failed:',
+            error instanceof Error ? error.message : error
+          );
+          process.exit(1);
+        }
+      })
+  )
+  .addCommand(
+    new Command('status')
+      .description('Check Anthropic authentication status')
+      .action(async () => {
+        try {
+          await statusCommand();
+        } catch (error) {
+          console.error(
+            'Status check failed:',
+            error instanceof Error ? error.message : error
+          );
+          process.exit(1);
+        }
+      })
+  )
+  .addCommand(
+    new Command('list')
+      .description('List stored authentication credentials')
+      .action(async () => {
+        try {
+          await listCommand();
+        } catch (error) {
+          console.error(
+            'List failed:',
+            error instanceof Error ? error.message : error
+          );
+          process.exit(1);
+        }
+      })
+  );
+
+program
+  .command('prompt')
+  .description('Test Anthropic provider with a prompt')
+  .argument('<prompt>', 'Prompt to send to Claude')
+  .action(async (prompt) => {
+    try {
+      const provider = await anthropicProvider;
+      const result = await generateText({
+        model: provider('claude-sonnet-4-20250514'),
+        prompt: prompt,
+      });
+      console.log(result.text);
+    } catch (error) {
+      console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
     }
   });
 

@@ -3,111 +3,24 @@
  * Provides user-friendly authentication management interface
  */
 
-import * as readline from 'readline';
+import { select, input, confirm, password } from '@inquirer/prompts';
 import { AnthropicOAuth, CredentialStore } from './auth/index.js';
 
-// Add open function - this would need to be installed as a dependency
+// Open URL using Bun's shell API
 async function open(url: string): Promise<void> {
-  const { exec } = await import('child_process');
-  const start = process.platform === 'darwin' ? 'open' :
-                process.platform === 'win32' ? 'start' : 'xdg-open';
-  exec(`${start} ${url}`);
-}
-
-/**
- * Create readline interface for user input
- */
-function createReadlineInterface() {
-  return readline.createInterface({
-    input: process.stdin,
-    output: process.stdout,
-  });
-}
-
-/**
- * Prompt user for input with optional hidden input (for passwords)
- */
-function promptUser(
-  question: string,
-  hidden: boolean = false
-): Promise<string> {
-  return new Promise((resolve) => {
-    const rl = createReadlineInterface();
-
-    if (hidden) {
-      // Hide input for sensitive data
-      const stdin = process.stdin;
-      stdin.setRawMode?.(true);
-
-      let input = '';
-      const onData = (char: Buffer) => {
-        const c = char.toString();
-
-        switch (c) {
-          case '\n':
-          case '\r':
-          case '\u0004': // Ctrl+D
-            stdin.setRawMode?.(false);
-            stdin.removeListener('data', onData);
-            rl.close();
-            process.stdout.write('\n'); // New line after hidden input
-            resolve(input);
-            break;
-          case '\u0003': // Ctrl+C
-            stdin.setRawMode?.(false);
-            stdin.removeListener('data', onData);
-            rl.close();
-            process.exit(0);
-            // No break needed after process.exit(0)
-            // eslint-disable-next-line no-fallthrough
-          case '\u007f': // Backspace
-            if (input.length > 0) {
-              input = input.slice(0, -1);
-              process.stdout.write('\b \b');
-            }
-            break;
-          default:
-            input += c;
-            process.stdout.write('*');
-            break;
-        }
-      };
-
-      process.stdout.write(question);
-      stdin.on('data', onData);
+  try {
+    if (process.platform === 'darwin') {
+      await Bun.$`open ${url}`;
+    } else if (process.platform === 'win32') {
+      await Bun.$`cmd /c start "" "${url}"`;
     } else {
-      rl.question(question, (answer) => {
-        rl.close();
-        resolve(answer.trim());
-      });
+      await Bun.$`xdg-open ${url}`;
     }
-  });
-}
-
-/**
- * Prompt user to select from options
- */
-async function selectOption(
-  question: string,
-  options: Array<{ label: string; value: string; hint?: string }>
-): Promise<string> {
-  process.stdout.write(question + '\n');
-  options.forEach((option, index) => {
-    const hint = option.hint ? ` (${option.hint})` : '';
-    process.stdout.write(`  ${index + 1}. ${option.label}${hint}\n`);
-  });
-
-  while (true) {
-    const choice = await promptUser(
-      'Select option (1-' + options.length + '): '
+  } catch (error) {
+    // Ignore open errors - we'll show the URL manually
+    throw new Error(
+      `Failed to open browser: ${error instanceof Error ? error.message : String(error)}`
     );
-    const index = parseInt(choice) - 1;
-
-    if (index >= 0 && index < options.length) {
-      return options[index]!.value;
-    }
-
-    process.stdout.write('Invalid selection. Please try again.\n');
   }
 }
 
@@ -117,12 +30,12 @@ async function selectOption(
 export async function loginCommand(): Promise<void> {
   process.stdout.write('\n🔐 Authentication Setup\n\n');
 
-  // For now, we only support Anthropic, but designed for extensibility
-  const providers = [
-    { label: 'Anthropic (Claude)', value: 'anthropic', hint: 'recommended' },
-  ];
+  const providers = [{ name: 'Anthropic (Claude)', value: 'anthropic' }];
 
-  const provider = await selectOption('Select provider:', providers);
+  const provider = await select({
+    message: 'Select provider:',
+    choices: providers,
+  });
 
   if (provider === 'anthropic') {
     await handleAnthropicLogin();
@@ -137,11 +50,14 @@ export async function loginCommand(): Promise<void> {
  */
 async function handleAnthropicLogin(): Promise<void> {
   const methods = [
-    { label: 'Claude Pro/Max (OAuth)', value: 'oauth' },
-    { label: 'API Key', value: 'api' },
+    { name: 'Claude Pro/Max (OAuth)', value: 'oauth' },
+    { name: 'API Key', value: 'api' },
   ];
 
-  const method = await selectOption('Select authentication method:', methods);
+  const method = await select({
+    message: 'Select authentication method:',
+    choices: methods,
+  });
 
   if (method === 'oauth') {
     await handleOAuthLogin();
@@ -172,7 +88,9 @@ async function handleOAuthLogin(): Promise<void> {
     process.stdout.write(
       "\nAfter authorizing, you'll be redirected to a page with an authorization code.\n"
     );
-    const code = await promptUser('📋 Paste the authorization code here: ');
+    const code = await input({
+      message: '📋 Paste the authorization code here:',
+    });
 
     if (!code) {
       process.stderr.write('❌ No authorization code provided\n');
@@ -202,7 +120,9 @@ async function handleApiKeyLogin(): Promise<void> {
       'Get your API key from: https://console.anthropic.com/\n'
     );
 
-    const apiKey = await promptUser('Enter your Anthropic API key: ', true);
+    const apiKey = await password({
+      message: 'Enter your Anthropic API key:',
+    });
 
     if (!apiKey) {
       process.stderr.write('❌ No API key provided\n');
@@ -214,8 +134,11 @@ async function handleApiKeyLogin(): Promise<void> {
       process.stdout.write(
         '⚠️  Warning: API key format looks unusual (should start with sk-ant-)\n'
       );
-      const confirm = await promptUser('Continue anyway? (y/N): ');
-      if (!confirm.toLowerCase().startsWith('y')) {
+      const shouldContinue = await confirm({
+        message: 'Continue anyway?',
+        default: false,
+      });
+      if (!shouldContinue) {
         process.stderr.write('❌ Cancelled\n');
         process.exit(1);
       }
@@ -258,9 +181,12 @@ export async function logoutCommand(): Promise<void> {
         process.stdout.write(
           `Removing ${provider} credentials (${credential.type})\n`
         );
-        const confirm = await promptUser('Are you sure? (y/N): ');
+        const shouldLogout = await confirm({
+          message: 'Are you sure?',
+          default: false,
+        });
 
-        if (confirm.toLowerCase().startsWith('y')) {
+        if (shouldLogout) {
           await CredentialStore.remove(provider);
           process.stdout.write('✅ Logged out successfully\n');
         } else {
@@ -269,21 +195,24 @@ export async function logoutCommand(): Promise<void> {
       }
     } else {
       // Multiple providers - let user choose
-      const options = providers.map((provider) => {
+      const choices = providers.map((provider) => {
         const credential = credentials[provider];
         return {
-          label: `${provider} (${credential?.type || 'unknown'})`,
+          name: `${provider} (${credential?.type || 'unknown'})`,
           value: provider,
         };
       });
 
-      const provider = await selectOption(
-        'Select provider to logout:',
-        options
-      );
+      const provider = await select({
+        message: 'Select provider to logout:',
+        choices,
+      });
 
-      const confirm = await promptUser('Are you sure? (y/N): ');
-      if (confirm.toLowerCase().startsWith('y')) {
+      const shouldLogout = await confirm({
+        message: 'Are you sure?',
+        default: false,
+      });
+      if (shouldLogout) {
         await CredentialStore.remove(provider);
         process.stdout.write('✅ Logged out successfully\n');
       } else {
