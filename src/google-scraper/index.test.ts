@@ -71,7 +71,7 @@ test('search returns formatted results', async () => {
     })
   );
 
-  global.fetch = mockFetch as any;
+  global.fetch = mockFetch as unknown as typeof fetch;
 
   const client = new GoogleSearchClient();
   const results = await client.search('test query');
@@ -93,12 +93,12 @@ test('search returns formatted results', async () => {
   expect(mockFetch).toHaveBeenCalledTimes(1);
 });
 
-test('search validates options with Zod', async () => {
+test('search validates options with Zod', () => {
   const client = new GoogleSearchClient();
 
-  await expect(client.search('test', { maxResults: -1 })).rejects.toThrow();
-  await expect(client.search('test', { maxResults: 101 })).rejects.toThrow();
-  await expect(client.search('test', { startIndex: 0 })).rejects.toThrow();
+  expect(client.search('test', { maxResults: -1 })).rejects.toThrow();
+  expect(client.search('test', { maxResults: 101 })).rejects.toThrow();
+  expect(client.search('test', { startIndex: 0 })).rejects.toThrow();
 });
 
 test('search handles pagination for 20 results', async () => {
@@ -117,7 +117,7 @@ test('search handles pagination for 20 results', async () => {
     })
   );
 
-  global.fetch = mockFetch as any;
+  global.fetch = mockFetch as unknown as typeof fetch;
 
   const client = new GoogleSearchClient();
   const results = await client.search('test query', { maxResults: 20 });
@@ -128,7 +128,7 @@ test('search handles pagination for 20 results', async () => {
   expect(results[19]?.position).toBe(20);
 });
 
-test('search handles API errors with validation', async () => {
+test('search handles API errors with validation', () => {
   const mockFetch = mock(() =>
     Promise.resolve({
       ok: false,
@@ -137,11 +137,11 @@ test('search handles API errors with validation', async () => {
     })
   );
 
-  global.fetch = mockFetch as any;
+  global.fetch = mockFetch as unknown as typeof fetch;
 
   const client = new GoogleSearchClient();
 
-  await expect(client.search('test query')).rejects.toThrow(
+  expect(client.search('test query')).rejects.toThrow(
     'Search failed: API request failed (400): Invalid API key'
   );
 });
@@ -158,7 +158,7 @@ test('search handles empty results', async () => {
     })
   );
 
-  global.fetch = mockFetch as any;
+  global.fetch = mockFetch as unknown as typeof fetch;
 
   const client = new GoogleSearchClient();
   const results = await client.search('no results query');
@@ -174,7 +174,7 @@ test('search respects maxResults option', async () => {
     })
   );
 
-  global.fetch = mockFetch as any;
+  global.fetch = mockFetch as unknown as typeof fetch;
 
   const client = new GoogleSearchClient();
   const results = await client.search('test query', { maxResults: 1 });
@@ -191,7 +191,7 @@ test('searchGoogle function works as expected', async () => {
     })
   );
 
-  global.fetch = mockFetch as any;
+  global.fetch = mockFetch as unknown as typeof fetch;
 
   const results = await searchGoogle('test query');
 
@@ -199,7 +199,7 @@ test('searchGoogle function works as expected', async () => {
   expect(results[0]?.title).toBe('Test Result 1');
 });
 
-test('search validates API response structure', async () => {
+test('search validates API response structure', () => {
   const invalidResponse = {
     items: [
       {
@@ -232,9 +232,9 @@ test('search validates API response structure', async () => {
     })
   );
 
-  global.fetch = mockFetch as any;
+  global.fetch = mockFetch as unknown as typeof fetch;
 
   const client = new GoogleSearchClient();
 
-  await expect(client.search('test query')).rejects.toThrow();
+  expect(client.search('test query')).rejects.toThrow();
 });

@@ -20,7 +20,7 @@ server.registerTool(
     description: 'Add two numbers',
     inputSchema: { a: z.number(), b: z.number() },
   },
-  async ({ a, b }) => ({
+  ({ a, b }) => ({
     content: [{ type: 'text', text: String(a + b) }],
   })
 );
@@ -33,11 +33,11 @@ server.registerResource(
     title: 'Greeting Resource', // Display name for UI
     description: 'Dynamic greeting generator',
   },
-  async (uri, { name }) => ({
+  (uri, { name }) => ({
     contents: [
       {
         uri: uri.href,
-        text: `Hello, ${name}!`,
+        text: `Hello, ${String(name)}!`,
       },
     ],
   })

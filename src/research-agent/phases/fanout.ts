@@ -111,13 +111,14 @@ async function extractInsightsFromContent(
 ): Promise<Finding[]> {
   const provider = await anthropicProvider;
 
-  const findings: Finding[] = [];
+  // Filter valid content upfront
+  const validContents = contents.filter(
+    (content) =>
+      !content.startsWith('Error fetching') && content.trim().length >= 100
+  );
 
-  for (const content of contents) {
-    if (content.startsWith('Error fetching') || content.trim().length < 100) {
-      continue; // Skip failed fetches or very short content
-    }
-
+  // Process all content in parallel
+  const insightPromises = validContents.map(async (content) => {
     try {
       const { text } = await generateText({
         model: provider('claude-sonnet-4-20250514'),
@@ -132,18 +133,22 @@ Format as bullet points.`,
       });
 
       if (text.trim().length > 0) {
-        findings.push({
-          id: crypto.randomUUID(),
+        return {
+          id: crypto.randomUUID() as string,
           content: text,
           source: 'web_content', // We could track the actual URL if needed
           timestamp: new Date(),
-        });
+        };
       }
+      return null;
     } catch (error) {
       console.warn('Failed to extract insights from content:', error);
-      continue;
+      return null;
     }
-  }
+  });
 
-  return findings;
+  const results = await Promise.all(insightPromises);
+
+  // Filter out null results
+  return results.filter((finding): finding is Finding => finding !== null);
 }

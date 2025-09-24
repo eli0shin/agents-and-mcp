@@ -9,6 +9,7 @@ import {
   statusCommand,
   anthropicProvider,
 } from './anthropic/index.js';
+import { performDeepResearch } from './research-agent/index.js';
 
 const program = new Command()
   .name('agents-and-mcp')
@@ -185,6 +186,28 @@ program
       console.log(result.text);
     } catch (error) {
       console.error('Error:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('research')
+  .description('Perform deep research on a topic')
+  .argument('<query>', 'Research query')
+  .action(async (query) => {
+    try {
+      const report = await performDeepResearch(query);
+
+      console.log('\n' + '='.repeat(80));
+      console.log('RESEARCH REPORT');
+      console.log('='.repeat(80));
+      console.log(report.detailedFindings);
+      console.log('\n' + '='.repeat(80));
+      console.log(`Sources consulted: ${report.sources.length}`);
+      console.log(`Total findings: ${report.metadata.findingsCount}`);
+      console.log('='.repeat(80));
+    } catch (error) {
+      console.error('Failed to complete research:', error instanceof Error ? error.message : error);
       process.exit(1);
     }
   });

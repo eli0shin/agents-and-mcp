@@ -34,5 +34,8 @@ async function example() {
 
 // Run example if this file is executed directly
 if (import.meta.main) {
-  example();
+  example().catch((error) => {
+    console.error('Example failed:', error);
+    process.exit(1);
+  });
 }

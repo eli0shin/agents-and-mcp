@@ -41,6 +41,7 @@ export class GoogleSearchClient {
       );
 
       try {
+        // eslint-disable-next-line no-await-in-loop
         const response = await this.makeRequest(
           query,
           startIndex,

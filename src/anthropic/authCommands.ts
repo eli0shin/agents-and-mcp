@@ -232,30 +232,28 @@ export async function logoutCommand(): Promise<void> {
  */
 export async function listCommand(): Promise<void> {
   try {
-    const credentials = await CredentialStore.list();
+    const credential = await CredentialStore.get('anthropic');
     const authFilePath = CredentialStore.getAuthFilePath();
 
     process.stdout.write(`\n📄 Stored Credentials (${authFilePath})\n\n`);
 
-    if (Object.keys(credentials).length === 0) {
+    if (!credential) {
       process.stdout.write('ℹ️  No stored credentials\n');
       process.stdout.write('   Run: npx . auth login\n');
       return;
     }
 
-    for (const [provider, credential] of Object.entries(credentials)) {
-      const authType = credential.type;
-      let status = '';
+    const authType = credential.type;
+    let status = '';
 
-      if (credential.type === 'oauth') {
-        const isValid = await AnthropicOAuth.isAuthenticated();
-        status = isValid ? '✅ valid' : '❌ expired/invalid';
-      } else {
-        status = '🔑 api-key';
-      }
-
-      process.stdout.write(`  ${provider}: ${authType} ${status}\n`);
+    if (credential.type === 'oauth') {
+      const isValid = await AnthropicOAuth.isAuthenticated();
+      status = isValid ? '✅ valid' : '❌ expired/invalid';
+    } else {
+      status = '🔑 api-key';
     }
+
+    process.stdout.write(`  anthropic: ${authType} ${status}\n`);
   } catch (error) {
     process.stderr.write(
       `❌ Failed to list credentials: ${error instanceof Error ? error.message : String(error)}\n`
