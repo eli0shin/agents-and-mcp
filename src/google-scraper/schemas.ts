@@ -37,7 +37,7 @@ export const GoogleSearchResponseSchema = z.object({
     request: z.array(
       z.object({
         title: z.string(),
-        totalResults: z.string(),
+        totalResults: z.string().optional(),
         searchTerms: z.string(),
         count: z.number().int(),
         startIndex: z.number().int(),
@@ -47,7 +47,7 @@ export const GoogleSearchResponseSchema = z.object({
       .array(
         z.object({
           title: z.string(),
-          totalResults: z.string(),
+          totalResults: z.string().optional(),
           searchTerms: z.string(),
           count: z.number().int(),
           startIndex: z.number().int(),
