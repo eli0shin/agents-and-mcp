@@ -207,7 +207,10 @@ program
       console.log(`Total findings: ${report.metadata.findingsCount}`);
       console.log('='.repeat(80));
     } catch (error) {
-      console.error('Failed to complete research:', error instanceof Error ? error.message : error);
+      console.error(
+        'Failed to complete research:',
+        error instanceof Error ? error.message : error
+      );
       process.exit(1);
     }
   });

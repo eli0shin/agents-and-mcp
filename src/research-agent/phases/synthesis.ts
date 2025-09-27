@@ -1,7 +1,6 @@
 // Phase 4: Synthesis & Report Generation
 
-import { generateObject } from 'ai';
-import { z } from 'zod';
+import { generateText } from 'ai';
 import { anthropicProvider } from '../../anthropic/index.js';
 import { setReport, updatePhase } from '../state.js';
 import type {
@@ -17,7 +16,7 @@ export async function executeSynthesis(
   const allFindings = state.findings;
 
   // 1. Generate comprehensive synthesis
-  const synthesis = await generateResearchSynthesis(state.query, allFindings);
+  const synthesis = await generateResearchSynthesis(state.query, state);
 
   // 2. Add citations and create final report
   const report = createFinalReport(
@@ -37,17 +36,31 @@ export async function executeSynthesis(
 
 async function generateResearchSynthesis(
   query: string,
-  findings: Finding[]
+  state: ResearchState
 ): Promise<ResearchSynthesis> {
   const provider = await anthropicProvider;
-  const findingsText = findings.map((f) => f.content).join('\n\n---\n\n');
+  const findingsText = state.findings
+    .map((f) => f.content)
+    .join('\n</finding>\n<finding>\n');
 
-  const result = await generateObject({
+  const result = await generateText({
     model: provider('claude-sonnet-4-20250514'),
-    prompt: `Synthesize comprehensive research findings for the query: "${query}"
+    prompt: `Synthesize comprehensive research findings for the query following the synthesis strategy.
 
-Research Findings:
+<query>
+${query}
+</query>
+
+<findings>
+<finding>
 ${findingsText}
+</finding>
+</findings>
+
+<synthesis-strategy>
+${state.researchPlan?.synthesisStrategy}
+</synthesis-strategy>
+
 
 Create a thorough synthesis that:
 1. Provides a clear executive summary
@@ -55,26 +68,24 @@ Create a thorough synthesis that:
 3. Identifies key insights and patterns
 4. Draws evidence-based conclusions
 
-Focus on accuracy, coherence, and comprehensive coverage of the topic.`,
-    schema: z.object({
-      summary: z
-        .string()
-        .describe('Executive summary of key findings (2-3 paragraphs)'),
-      content: z
-        .string()
-        .describe(
-          'Detailed findings and analysis (comprehensive, well-organized)'
-        ),
-      keyInsights: z
-        .array(z.string())
-        .describe('3-5 most important insights discovered'),
-      conclusions: z
-        .array(z.string())
-        .describe('Evidence-based conclusions drawn from the research'),
-    }),
+Focus on accuracy, coherence, and comprehensive coverage of the topic.
+
+Return ONLY valid JSON in this exact format (no explanations, no markdown, no XML tags):
+
+{
+  "summary": "Executive summary of key findings (2-3 paragraphs)",
+  "content": "Detailed findings and analysis (comprehensive, well-organized)",
+  "keyInsights": ["3-5 most important insights discovered"],
+  "conclusions": ["Evidence-based conclusions drawn from the research"]
+}`,
+    providerOptions: {
+      anthropic: {
+        thinking: { type: 'enabled', budgetTokens: 32000 },
+      },
+    },
   });
 
-  return result.object;
+  return JSON.parse(result.text) as ResearchSynthesis;
 }
 
 function createFinalReport(
@@ -97,7 +108,11 @@ ${synthesis.content}
 ${synthesis.keyInsights.map((insight, i) => `${i + 1}. ${insight}`).join('\n')}
 
 ## Conclusions
-${synthesis.conclusions.map((conclusion, i) => `${i + 1}. ${conclusion}`).join('\n')}`;
+${synthesis.conclusions.map((conclusion, i) => `${i + 1}. ${conclusion}`).join('\n')}
+
+## Sources
+${sources.map((src) => `- ${src}`).join('\n')}
+`;
 
   return {
     query,

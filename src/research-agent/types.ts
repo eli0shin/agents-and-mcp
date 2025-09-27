@@ -58,6 +58,7 @@ export type ResearchReport = {
 };
 
 export type ResearchState = {
+  sessionId: string;
   // Core context
   query: string;
   currentPhase: ResearchPhase;

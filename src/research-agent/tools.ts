@@ -75,12 +75,14 @@ export async function executeWebFetch(
     // Fetch the content
     const response = await fetch(validatedParams.url, {
       headers: {
-        "User-Agent":
-          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        'User-Agent':
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
       },
     });
     if (!response.ok) {
-      throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      throw new Error(
+        `HTTP ${response.status}: ${response.statusText} ${validatedParams.url}`
+      );
     }
 
     const contentType = response.headers.get('content-type') || '';
@@ -104,6 +106,7 @@ export async function executeWebFetch(
       content = content.substring(0, validatedParams.max_length);
     }
 
+    console.log(`[Web Fetch Success] ${validatedParams.url}`);
     return { success: true, data: content };
   } catch (error) {
     console.error(error);
@@ -116,7 +119,7 @@ export async function executeWebFetch(
 
 // Legacy tool objects for backward compatibility with ai library if needed
 export const googleSearchTool = {
-  description: 'Search Google for information using Custom Search API',
+  description: 'Search the web',
   parameters: GoogleSearchParamsSchema,
   execute: executeGoogleSearch,
 };

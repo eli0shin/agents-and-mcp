@@ -131,10 +131,6 @@ export async function refreshToken(): Promise<string | undefined> {
     return undefined;
   }
 
-  console.debug('Starting token refresh process', {
-    refreshTokenLength: credentials.refresh.length,
-  });
-
   try {
     const response = await fetch(TOKEN_URL, {
       method: 'POST',
