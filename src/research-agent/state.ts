@@ -1,8 +1,7 @@
 // State management functions for research agent
 
 import { randomBytes } from 'crypto';
-import { promises as fs } from 'fs';
-import { join } from 'path';
+import { persistState } from './sessionStorage.js';
 import type {
   ResearchState,
   ResearchPhase,
@@ -12,8 +11,6 @@ import type {
   ResearchPlan,
   ResearchReport,
 } from './types.js';
-
-const STATE_OUTPUT_DIRECTORY = join(process.cwd(), 'research-sessions');
 
 function generateTimeUuid(): string {
   const timestamp = Date.now();
@@ -32,18 +29,6 @@ function generateTimeUuid(): string {
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
 }
 
-async function persistResearchState(state: ResearchState): Promise<void> {
-  try {
-    await fs.mkdir(STATE_OUTPUT_DIRECTORY, { recursive: true });
-    const outputPath = join(STATE_OUTPUT_DIRECTORY, `${state.sessionId}.json`);
-    const serializedState = JSON.stringify(state, null, 2);
-    await fs.writeFile(outputPath, serializedState, 'utf-8');
-  } catch (error) {
-    const message = error instanceof Error ? error.message : String(error);
-    console.warn('Failed to persist research state:', message);
-  }
-}
-
 // State management functions
 export function initializeResearch(query: string): ResearchState {
   const state: ResearchState = {
@@ -56,7 +41,7 @@ export function initializeResearch(query: string): ResearchState {
     followUpQueries: [],
   };
 
-  void persistResearchState(state);
+  void persistState(state);
 
   return state;
 }
@@ -66,7 +51,7 @@ export function updatePhase(
   phase: ResearchPhase
 ): ResearchState {
   state.currentPhase = phase;
-  void persistResearchState(state);
+  void persistState(state);
   return state;
 }
 
@@ -75,7 +60,7 @@ export function addSearchResults(
   results: SearchResult[]
 ): ResearchState {
   state.searchResults.push(...results);
-  void persistResearchState(state);
+  void persistState(state);
   return state;
 }
 
@@ -84,7 +69,7 @@ export function addWebContents(
   contents: WebContent[]
 ): ResearchState {
   state.webContents.push(...contents);
-  void persistResearchState(state);
+  void persistState(state);
   return state;
 }
 
@@ -93,7 +78,7 @@ export function addFindings(
   findings: Finding[]
 ): ResearchState {
   state.findings.push(...findings);
-  void persistResearchState(state);
+  void persistState(state);
   return state;
 }
 
@@ -102,7 +87,7 @@ export function setResearchPlan(
   plan: ResearchPlan
 ): ResearchState {
   state.researchPlan = plan;
-  void persistResearchState(state);
+  void persistState(state);
   return state;
 }
 
@@ -111,7 +96,7 @@ export function setReport(
   report: ResearchReport
 ): ResearchState {
   state.report = report;
-  void persistResearchState(state);
+  void persistState(state);
   return state;
 }
 
@@ -120,6 +105,6 @@ export function addFollowUpQueries(
   queries: string[]
 ): ResearchState {
   state.followUpQueries.push(...queries);
-  void persistResearchState(state);
+  void persistState(state);
   return state;
 }

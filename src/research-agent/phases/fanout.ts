@@ -1,10 +1,17 @@
 // Phase 3: Fan-Out Investigation
 
+import { randomUUID } from 'crypto';
 import { generateText, generateObject } from 'ai';
 import { z } from 'zod';
 import { anthropicProvider } from '../../anthropic/index.js';
 import { executeGoogleSearch, executeWebFetch } from '../tools.js';
 import { addFindings, addWebContents, updatePhase } from '../state.js';
+import { persistPrompt, persistResponse } from '../sessionStorage.js';
+import {
+  buildContentExtractionPrompt,
+  buildContentRelevancePrompt,
+  buildSpecializedQueriesPrompt,
+} from '../prompts.js';
 import type {
   ResearchState,
   ResearchPlan,
@@ -20,36 +27,33 @@ const relevanceSchema = z.object({
 });
 
 async function checkContentRelevance(
-  content: string,
-  originalQuery: string,
-  researchQuestion: string,
-  searchQuery: string
+  state: ResearchState,
+  params: {
+    content: string;
+    researchQuestion: string;
+    searchQuery: string;
+  }
 ): Promise<{ relevant: boolean; reason?: string }> {
   const provider = await anthropicProvider;
+  const prompt = buildContentRelevancePrompt(state, params);
+  const promptId = await persistPrompt(
+    state.sessionId,
+    buildContentRelevancePrompt.name,
+    prompt
+  );
 
   const { object } = await generateObject({
     model: provider('claude-sonnet-4-20250514'),
     schema: relevanceSchema,
-    prompt: `Determine if this content is strictly relevant to provide an answer to the research inquiry.
-
-<original_query>
-${originalQuery}
-</original_query>
-
-<research_question>
-${researchQuestion}
-</research_question>
-
-<search_query>
-${searchQuery}
-</search_query>
-
-<content>
-${content}
-</content>
-
-Return true only if the content contains information that could help answer the research question or original query. Be strict - marketing content, irrelevant articles, artictles about a different but similar topic, or tangential information should be marked as false.`,
+    prompt,
   });
+
+  await persistResponse(
+    state.sessionId,
+    buildContentRelevancePrompt.name,
+    promptId,
+    JSON.stringify(object, null, 2)
+  );
 
   return object;
 }
@@ -62,7 +66,7 @@ export async function executeFanOutInvestigation(
 
   // 1. Execute all investigations in parallel
   const investigationPromises = investigations.map((strategy) =>
-    executeInvestigationStrategy(strategy, state.query)
+    executeInvestigationStrategy(state, strategy)
   );
 
   // 2. Process all investigations in parallel
@@ -77,11 +81,11 @@ export async function executeFanOutInvestigation(
 }
 
 async function executeInvestigationStrategy(
-  strategy: InvestigationStrategy,
-  originalQuery: string
+  state: ResearchState,
+  strategy: InvestigationStrategy
 ): Promise<Finding[]> {
   // 1. Generate specialized search queries
-  const queries = await generateSpecializedQueries(strategy);
+  const queries = await generateSpecializedQueries(state, strategy);
 
   // 2. Execute searches in parallel
   const searchPromises = queries.map((query) =>
@@ -134,12 +138,11 @@ async function executeInvestigationStrategy(
     const queryIndex = Math.floor((index * queries.length) / contents.length);
     const searchQuery = queries[queryIndex] || queries[0] || '';
 
-    return checkContentRelevance(
+    return checkContentRelevance(state, {
       content,
-      originalQuery,
-      strategy.question,
-      searchQuery
-    );
+      researchQuestion: strategy.question,
+      searchQuery,
+    });
   });
 
   const relevanceResults = await Promise.all(relevancePromises);
@@ -165,6 +168,7 @@ async function executeInvestigationStrategy(
 
   // 5. Extract insights from ONLY relevant content
   const insights = await extractInsightsFromContent(
+    state,
     relevantContents,
     relevantUrls,
     strategy.question
@@ -174,60 +178,20 @@ async function executeInvestigationStrategy(
 }
 
 async function generateSpecializedQueries(
+  state: ResearchState,
   strategy: InvestigationStrategy
 ): Promise<string[]> {
   const provider = await anthropicProvider;
+  const prompt = buildSpecializedQueriesPrompt(strategy);
+  const promptId = await persistPrompt(
+    state.sessionId,
+    buildSpecializedQueriesPrompt.name,
+    prompt
+  );
 
   const result = await generateText({
     model: provider('claude-sonnet-4-20250514'),
-    prompt: `<task>
-Generate 2-3 specialized KEYWORD-BASED search queries to investigate this research question:
-
-<question>
-${strategy.question}
-</question>
-
-<approach>
-${strategy.approach}
-</approach>
-
-<expected-sources>
-${strategy.expectedSources.join(', ')}
-</expected-sources>
-</task>
-
-<examples>
-<good_specialized_queries>
-- "React performance optimization techniques"
-- "Node.js memory leaks debugging tools"
-- "PostgreSQL indexing best practices performance"
-- "Kubernetes security vulnerabilities CVE"
-- "Python async concurrent programming patterns"
-</good_specialized_queries>
-
-<bad_specialized_queries>
-- "How can I optimize React performance?"
-- "What tools help debug Node.js memory leaks?"
-- "Show me the best practices for PostgreSQL indexing"
-- "Are there security issues with Kubernetes?"
-- "Explain Python async programming to me"
-</bad_specialized_queries>
-</examples>
-
-<requirements>
-- Use 2-6 targeted keywords per query
-- Focus on technical terms, methodologies, or specific tools
-- Avoid question words (how, what, why, when, are, is)
-- Avoid conversational phrases
-- Include relevant technologies from expectedSources when applicable
-- Target authoritative sources like documentation, research papers, or expert analysis
-</requirements>
-
-Return ONLY valid JSON in this exact format (no explanations, no markdown, no XML tags):
-
-{
-  "queries": ["query1", "query2", "query3"]
-}`,
+    prompt,
     providerOptions: {
       anthropic: {
         thinking: { type: 'enabled', budgetTokens: 16000 },
@@ -235,11 +199,19 @@ Return ONLY valid JSON in this exact format (no explanations, no markdown, no XM
     },
   });
 
+  await persistResponse(
+    state.sessionId,
+    buildSpecializedQueriesPrompt.name,
+    promptId,
+    result.text
+  );
+
   const parsed = JSON.parse(result.text) as { queries: string[] };
   return parsed.queries;
 }
 
 async function extractInsightsFromContent(
+  state: ResearchState,
   contents: string[],
   urls: string[],
   question: string
@@ -254,29 +226,38 @@ async function extractInsightsFromContent(
 
   // Process all content in parallel to extract main content
   const contentPromises = validContents.map(async (content, index) => {
+    const prompt = buildContentExtractionPrompt(content);
+    const promptId = await persistPrompt(
+      state.sessionId,
+      buildContentExtractionPrompt.name,
+      prompt
+    );
+
     try {
       const { text } = await generateText({
         model: provider('claude-sonnet-4-20250514'),
-        prompt: `Extract the main content body from this page, removing any navigation, headers, footers, sidebars, advertisements, or other page decorations. Keep all substantive content intact - do not summarize or shorten it. Return the complete main article/page content in its entirety.
-
-<content>
-${content}
-</content>
-
-Return only the main content body, preserving all substantial information and details.`,
+        prompt,
       });
+
+      await persistResponse(
+        state.sessionId,
+        buildContentExtractionPrompt.name,
+        promptId,
+        text
+      );
 
       if (text.trim().length > 0) {
         return {
-          id: crypto.randomUUID() as string,
+          id: randomUUID(),
           content: text,
-          source: urls[index],
+          source: urls[index] ?? '',
           timestamp: new Date(),
-        };
+        } as Finding;
       }
       return null;
     } catch (error) {
-      console.warn('Failed to extract main content from page:', error);
+      const message = error instanceof Error ? error.message : String(error);
+      console.warn('Failed to extract main content from page:', message);
       return null;
     }
   });

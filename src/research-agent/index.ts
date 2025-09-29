@@ -25,7 +25,7 @@ export async function performDeepResearch(
 
     // Phase 1: Initial Search
     console.log('📊 Phase 1: Initial search and context building...');
-    const initialResults = await executeInitialSearch(query, state);
+    const initialResults = await executeInitialSearch(state);
     console.log(
       `✅ Found ${initialResults.findings.length} initial findings from ${initialResults.sources.length} sources`
     );
