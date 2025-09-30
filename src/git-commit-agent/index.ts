@@ -26,11 +26,6 @@ export async function performGitCommit(
         { role: 'user', content: getUserPrompt(options) },
       ],
       stopWhen: stepCountIs(30),
-      providerOptions: {
-        anthropic: {
-          thinking: { type: 'enabled', budgetTokens: 16000 },
-        },
-      },
     });
 
     // The AI has done all the work through tool calls
