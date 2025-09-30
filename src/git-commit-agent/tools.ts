@@ -7,6 +7,8 @@ export const bashTool = {
     command: z.string().describe('The bash command to execute'),
   }),
   execute: async ({ command }: { command: string }) => {
+    const commandPreview = command.split(' ').slice(0, 2).join(' ');
+    console.log(`⎿Bash(${commandPreview})`);
     try {
       const result = await $`sh -c ${command}`.text();
       return result;
@@ -25,6 +27,7 @@ export const readFileTool = {
     path: z.string().describe('Relative path to the file to read'),
   }),
   execute: async ({ path }: { path: string }) => {
+    console.log(`⎿Read(${path})`);
     try {
       const file = Bun.file(path);
       const content = await file.text();

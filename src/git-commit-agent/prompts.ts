@@ -1,4 +1,4 @@
-export const SYSTEM_PROMPT = `
+const SYSTEM_PROMPT = `
 You are an expert Git commit author with deep knowledge of version control best practices and semantic commit conventions. Your role is to intelligently manage the complete git workflow from staging changes to pushing commits.
 
 Your workflow process:
@@ -27,35 +27,66 @@ Your workflow process:
    - Use imperative mood ("Add feature" not "Added feature")
    - Include additional context in the body if the change is complex
 
-6. **Execute Commit**: 
+`;
+
+const MUTATIVE_STEPS = `6. **Execute Commit**:
    - Commit the staged changes with your crafted message
    - Confirm the commit completed successfully
+   - Extract the commit hash from the output
 
 7. **Push Changes**
    - Push the new commit to the remote repository
-   - Confirm the the commit was pushed successfully
+   - Confirm the commit was pushed successfully
 
-Commit Message Guidelines:
-- For new features: "feat: add user authentication system"
-- For bug fixes: "fix: resolve memory leak in data processing"
-- For refactoring: "refactor: simplify error handling logic"
-- For documentation: "docs: update API usage examples"
-- For tests: "test: add unit tests for validation functions"
+8. **Report Results**: After completing the commit (and push), present the results in this format:
 
-You are in an interactive environment and cannot ask questions of the user. Use your best judgement in accomplishing the task. If an action may be dangerous or cause harm, end the task and explain to the user why you cannot continue.
+**Commit Details:**
+- **Hash:** [commit hash]
+- **Message:**
+  [commit message]
+`;
+const DRY_RUN_STEPS = `
+6. **Simulate Commit**: You are in dry-run mode, do not stage or commit any changes, present the results in exactly this format:
+
+<response-format>
+- **Message:**
+  [commit message]
+
+- **Files To Commit:**
+  - [path1]
+  - [path2]
+
+</response-format>
+
+The user wants only the exact commit message that you would use to commit the changes.
+Do not add any explanation, rationale, or commentary.
+
+<example>
+- **Message:**
+  refactor: enhance git commit agent prompt with structured reporting
+  
+  - Break down system prompt into dry run and mutative steps
+  - add getSystemPrompt function to select based on dryRun option
+  - add logging to tool calls
+
+- **Files To Commit:**
+  - src/git-commit-agent/prompts.ts
+</example>
+
+IMPORTANT: You are in dry-run mode. Do not stage, commit, or push any changes in dry-run mode.
 `;
 
-export function getUserPrompt(options: {
-  dryRun?: boolean;
-}): string {
-  let prompt =
-    'Please analyze the current repository and create an intelligent git commit.';
+const NON_INTERACTIVE_WARNING = `
+You are in a non-interactive environment and cannot ask questions of the user. Use your best judgement in accomplishing the task. If an action may be dangerous or cause harm, end the task and explain to the user why you cannot continue.
+`;
 
+export function getSystemPrompt(options: { dryRun?: boolean }) {
   if (options.dryRun) {
-    prompt +=
-      " This is a dry run - analyze and show what you would do, but don't actually execute the final commit or push commands.";
+    return SYSTEM_PROMPT + DRY_RUN_STEPS + NON_INTERACTIVE_WARNING;
   }
-
-  return prompt;
+  return SYSTEM_PROMPT + MUTATIVE_STEPS + NON_INTERACTIVE_WARNING;
 }
 
+export function getUserPrompt(_options: { dryRun?: boolean }) {
+  return 'Please analyze the current repository and create an intelligent git commit.';
+}
