@@ -40,12 +40,12 @@ export const anthropicProvider = (async () => {
     authType: 'oauth',
     enableOAuth: true,
     preferOAuth: true,
-    baseFetch: fetch
+    baseFetch: fetch,
   });
 
   // Create and return the AI SDK provider with custom fetch
   return createAnthropic({
-    fetch: authenticatedFetch
+    fetch: authenticatedFetch,
   });
 })();
 
@@ -54,14 +54,6 @@ export {
   loginCommand,
   logoutCommand,
   listCommand,
-  statusCommand
+  statusCommand,
 } from './authCommands.js';
 
-// Re-export message transformation utility
-export { transformMessagesForAnthropic } from './messageTransform.js';
-
-// Re-export credential store for advanced usage
-export { CredentialStore, AnthropicOAuth } from './auth/index.js';
-
-// Re-export system prompt constants
-export { DEFAULT_SYSTEM_PROMPT, buildSystemPrompt } from './constants.js';
