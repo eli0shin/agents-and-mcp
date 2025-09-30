@@ -40,10 +40,30 @@ const MUTATIVE_STEPS = `6. **Execute Commit**:
 
 8. **Report Results**: After completing the commit (and push), present the results in this format:
 
-**Commit Details:**
-- **Hash:** [commit hash]
+<response-format>
 - **Message:**
   [commit message]
+
+- **Committed Files:**
+  - [path1]
+  - [path2]
+
+</response-format>
+
+The user wants only the exact commit message that you used to commit the changes.
+Do not add any explanation, rationale, or commentary.
+
+<example>
+- **Message:**
+  refactor: enhance git commit agent prompt with structured reporting
+  
+  - Break down system prompt into dry run and mutative steps
+  - add getSystemPrompt function to select based on dryRun option
+  - add logging to tool calls
+
+- **Committed Files:**
+  - src/git-commit-agent/prompts.ts
+</example>
 `;
 const DRY_RUN_STEPS = `
 6. **Simulate Commit**: You are in dry-run mode, do not stage or commit any changes, present the results in exactly this format:
