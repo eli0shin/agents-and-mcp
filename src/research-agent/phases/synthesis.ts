@@ -42,7 +42,7 @@ async function generateResearchSynthesis(
   );
 
   const result = await generateText({
-    model: provider('claude-sonnet-4-20250514'),
+    model: provider('claude-sonnet-4-5-20250929'),
     prompt,
     providerOptions: {
       anthropic: {

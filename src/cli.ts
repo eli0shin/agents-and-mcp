@@ -10,6 +10,7 @@ import {
   anthropicProvider,
 } from './anthropic/index.js';
 import { performDeepResearch } from './research-agent/index.js';
+import { performGitCommit } from './git-commit-agent/index.js';
 
 const program = new Command()
   .name('agents-and-mcp')
@@ -180,7 +181,7 @@ program
     try {
       const provider = await anthropicProvider;
       const result = await generateText({
-        model: provider('claude-sonnet-4-20250514'),
+        model: provider('claude-sonnet-4-5-20250929'),
         prompt: prompt,
       });
       console.log(result.text);
@@ -211,6 +212,28 @@ program
         'Failed to complete research:',
         error instanceof Error ? error.message : error
       );
+      process.exit(1);
+    }
+  });
+
+program
+  .command('git-commit')
+  .description('Intelligent git commit with AI-generated messages')
+  .option('-a, --all', 'Stage all changes before analyzing')
+  .option('-p, --push', 'Push after successful commit')
+  .option('--dry-run', 'Generate commit message without committing')
+  .action(async (options) => {
+    try {
+      const result = await performGitCommit(options);
+      console.log(result.message);
+      if (!result.success) {
+        if (result.error) {
+          console.error('Error:', result.error);
+        }
+        process.exit(1);
+      }
+    } catch (error) {
+      console.error('Git commit failed:', error instanceof Error ? error.message : error);
       process.exit(1);
     }
   });

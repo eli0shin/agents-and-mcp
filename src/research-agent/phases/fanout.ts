@@ -43,7 +43,7 @@ async function checkContentRelevance(
   );
 
   const { object } = await generateObject({
-    model: provider('claude-sonnet-4-20250514'),
+    model: provider('claude-sonnet-4-5-20250929'),
     schema: relevanceSchema,
     prompt,
   });
@@ -190,7 +190,7 @@ async function generateSpecializedQueries(
   );
 
   const result = await generateText({
-    model: provider('claude-sonnet-4-20250514'),
+    model: provider('claude-sonnet-4-5-20250929'),
     prompt,
     providerOptions: {
       anthropic: {
@@ -235,7 +235,7 @@ async function extractInsightsFromContent(
 
     try {
       const { text } = await generateText({
-        model: provider('claude-sonnet-4-20250514'),
+        model: provider('claude-sonnet-4-5-20250929'),
         prompt,
       });
 
