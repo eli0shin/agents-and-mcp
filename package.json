@@ -8,7 +8,6 @@
     "@modelcontextprotocol/sdk": "^1.18.1",
     "@openauthjs/openauth": "^0.4.3",
     "@types/bun": "latest",
-
     "ai": "^5.0.48",
     "eslint": "^9.36.0",
     "prettier": "^3.6.2",

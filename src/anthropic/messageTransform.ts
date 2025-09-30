@@ -6,7 +6,7 @@
 /**
  * Anthropic native content format
  */
-type AnthropicContent = {
+export type AnthropicContent = {
   type: 'text' | 'thinking' | 'redacted_thinking';
   text?: string;
   cache_control?: { type: 'ephemeral' };
@@ -15,7 +15,7 @@ type AnthropicContent = {
 /**
  * Anthropic native message format
  */
-type AnthropicMessage = {
+export type AnthropicMessage = {
   role: 'system' | 'user' | 'assistant';
   content: AnthropicContent[];
 };

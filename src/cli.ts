@@ -11,6 +11,7 @@ import {
 } from './anthropic/index.js';
 import { performDeepResearch } from './research-agent/index.js';
 import { performGitCommit } from './git-commit-agent/index.js';
+import { startMcpServer } from './mcp.js';
 
 const program = new Command()
   .name('agents-and-mcp')
@@ -232,6 +233,18 @@ program
       }
     } catch (error) {
       console.error('Git commit failed:', error instanceof Error ? error.message : error);
+      process.exit(1);
+    }
+  });
+
+program
+  .command('mcp')
+  .description('Start the MCP server')
+  .action(async () => {
+    try {
+      await startMcpServer();
+    } catch (error) {
+      console.error('MCP server failed:', error instanceof Error ? error.message : error);
       process.exit(1);
     }
   });

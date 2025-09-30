@@ -18,10 +18,7 @@ export async function executeSynthesis(
   const synthesis = await generateResearchSynthesis(state);
 
   // 2. Add citations and create final report
-  const report = createFinalReport(
-    state,
-    synthesis
-  );
+  const report = createFinalReport(state, synthesis);
 
   // 3. Update state
   setReport(state, report);

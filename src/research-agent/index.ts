@@ -36,14 +36,6 @@ export async function performDeepResearch(
     console.log(
       `✅ Generated research plan with ${plan.researchQuestions.length} questions and ${plan.investigationStrategies.length} strategies`
     );
-    console.log(
-      '[LS] -> p/s/r/index.ts:38 -> plan.investigationStrategies: ',
-      plan.investigationStrategies
-    );
-    console.log(
-      '[LS] -> p/s/r/index.ts:38 -> plan.researchQuestions: ',
-      plan.researchQuestions
-    );
 
     // Phase 3: Fan-Out Investigation
     console.log('🔬 Phase 3: Fan-out investigation...');
@@ -76,6 +68,3 @@ export async function performDeepResearch(
     };
   }
 }
-
-// Re-export types for external use
-export type { ResearchReport, ResearchState } from './types.js';

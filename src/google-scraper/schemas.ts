@@ -22,7 +22,7 @@ export const GoogleSearchItemSchema = z.object({
           })
         )
         .optional(),
-      metatags: z.array(z.record(z.string())).optional(),
+      metatags: z.array(z.record(z.string(), z.string())).optional(),
     })
     .optional(),
 });

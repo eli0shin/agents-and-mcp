@@ -4,18 +4,11 @@
  */
 
 import { AnthropicOAuth } from './auth/index.js';
-import { transformMessagesForAnthropic } from './messageTransform.js';
-
-type AnthropicContent = {
-  type: 'text';
-  text: string;
-  cache_control?: { type: 'ephemeral' };
-};
-
-type AnthropicMessage = {
-  role: 'system' | 'user' | 'assistant';
-  content: AnthropicContent[];
-};
+import {
+  transformMessagesForAnthropic,
+  type AnthropicContent,
+  type AnthropicMessage,
+} from './messageTransform.js';
 
 type AnthropicRequestBody = {
   messages: AnthropicMessage[];
