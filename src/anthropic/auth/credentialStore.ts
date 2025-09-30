@@ -4,8 +4,7 @@
  */
 
 import { z } from 'zod';
-import { promises as fs } from 'fs';
-import * as os from 'os';
+import { homedir } from 'os';
 import {
   readJsonFile,
   writeJsonFile,
@@ -132,7 +131,7 @@ export async function list(): Promise<Record<string, AuthInfo>> {
  */
 export async function clear(): Promise<void> {
   try {
-    await fs.unlink(AUTH_FILE);
+    await Bun.file(AUTH_FILE).delete();
   } catch (error) {
     if ((error as { code?: string }).code !== 'ENOENT') {
       throw error;
@@ -145,7 +144,7 @@ export async function clear(): Promise<void> {
  * @returns Path to auth file with home directory abbreviated
  */
 export function getAuthFilePath(): string {
-  const homeDir = os.homedir();
+  const homeDir = homedir();
   return AUTH_FILE.startsWith(homeDir) ?
       AUTH_FILE.replace(homeDir, '~')
     : AUTH_FILE;

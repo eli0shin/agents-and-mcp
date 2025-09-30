@@ -1,4 +1,4 @@
-import { promises as fs } from 'fs';
+import { mkdir, chmod } from 'node:fs/promises';
 import { join } from 'path';
 import { homedir } from 'os';
 
@@ -30,7 +30,7 @@ export async function readJsonFile<T = unknown>(
   validator?: (data: unknown) => T
 ): Promise<T | null> {
   try {
-    const content = await fs.readFile(filePath, 'utf-8');
+    const content = await Bun.file(filePath).text();
 
     let parsed: unknown;
     try {
@@ -89,7 +89,9 @@ export async function writeJsonFile(
 
   try {
     const jsonContent = JSON.stringify(data, null, indent);
-    await fs.writeFile(filePath, jsonContent, { mode });
+    await Bun.write(filePath, jsonContent);
+    // Bun.write doesn't support mode parameter, so set permissions after write
+    await chmod(filePath, mode);
   } catch (error) {
     throw handleFileError(error, 'write JSON file', filePath);
   }
@@ -107,7 +109,7 @@ export async function ensureDirectory(
   const { mode = 0o755, recursive = true } = options;
 
   try {
-    await fs.mkdir(dirPath, { recursive, mode });
+    await mkdir(dirPath, { recursive, mode });
   } catch (error) {
     // Directory might already exist
     if ((error as NodeJS.ErrnoException).code !== 'EEXIST') {
