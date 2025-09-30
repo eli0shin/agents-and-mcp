@@ -217,10 +217,8 @@ program
   });
 
 program
-  .command('git-commit')
+  .command('commit')
   .description('Intelligent git commit with AI-generated messages')
-  .option('-a, --all', 'Stage all changes before analyzing')
-  .option('-p, --push', 'Push after successful commit')
   .option('--dry-run', 'Generate commit message without committing')
   .action(async (options) => {
     try {

@@ -6,8 +6,6 @@ export type CommitResult = {
 };
 
 export type GitCommitOptions = {
-  all?: boolean;
-  push?: boolean;
   dryRun?: boolean;
 };
 
