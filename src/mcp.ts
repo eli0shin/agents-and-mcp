@@ -14,6 +14,11 @@ const server = new McpServer({
   name: 'ccjs',
   version: '1.0.0',
   title: 'CCCJS MCP Server',
+  capabilities: {
+    tools: {},
+    resources: {},
+    prompts: {},
+  },
 });
 
 // Git commit tool
